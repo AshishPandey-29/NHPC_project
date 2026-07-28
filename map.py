@@ -119,30 +119,9 @@ def generate_map():
     center_lat, center_lon = center_pt.y, center_pt.x
 
     print("2. Generating 0.125° grid over catchments...")
-    #minx, miny, maxx, maxy = catchment.total_bounds
-    #grid_size = 0.125
-
-    #cells = []
-    #x = minx
-    #while x < maxx:
-    #    y = miny
-    #    while y < maxy:
-    #        poly = Polygon([
-    #            (x, y),
-    #            (x + grid_size, y),
-    #            (x + grid_size, y + grid_size),
-    #            (x, y + grid_size)
-    #        ])
-    #        cells.append(poly)
-    #        y += grid_size
-    #    x += grid_size
-
-    #grid = gpd.GeoDataFrame(geometry=cells, crs="EPSG:4326")
     
-    ## Clip grid to catchment boundary
-    #grid = gpd.overlay(grid, catchment, how="intersection")
-    #grid = grid.reset_index(drop=True)
     grid = gpd.read_file(r"final_grid.gpkg")
+
     # Compute centroids for querying IMD
     grid_metric = grid.to_crs("EPSG:3857")
     grid_centroids = grid_metric.geometry.centroid.to_crs("EPSG:4326")
