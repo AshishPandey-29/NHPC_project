@@ -215,44 +215,75 @@ def generate_map():
     by="volume_24h_mcm",
     ascending=False
     )
+
+    # Connect To MySQL Database
     try:
         save_to_mysql(catchment_summary, latest_model)
     except Exception as e:
         print(f"Error saving to MySQL: {e}")
         traceback.print_exc()
-    panel_html = f"""
-    <div style="
-    position: fixed;
-    bottom: 20px;
-    left: 20px;
-    width: 340px;
-    max-height: 320px;
-    overflow-y: auto;
-    background: rgba(255,255,255,0.95);
-    border: 2px solid #555;
-    border-radius: 8px;
-    padding: 10px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.4);
-    z-index: 999999;
-    font-family: Arial;
-    font-size: 14px;
-    ">
+
+    # Rainfall Volume Summary Table (Frontend)
+    panel_html = """
+    <style>
+        .rainfall-table-container {
+            position: fixed !important;
+            bottom: 20px !important;
+            left: 20px !important;
+            width: 350px !important;
+            max-height: 320px !important;
+            overflow-y: auto !important;
+            background: rgba(255, 255, 255, 0.95) !important;
+            border: 2px solid #555 !important;
+            border-radius: 8px !important;
+            padding: 10px !important;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.4) !important;
+            z-index: 999999 !important;
+            font-family: Arial, sans-serif !important;
+            font-size: 13px !important;
+        }
+        .table-title {
+            margin-top: 0 !important;
+            margin-bottom: 10px !important;
+            font-size: 15px !important;
+            font-weight: bold !important;
+        }
+        .rainfall-table {
+            width: 100% !important;
+            border-collapse: collapse !important;
+        }
+        .rainfall-table th {
+            text-align: right !important;
+            padding: 4px 6px !important;
+            border-bottom: 2px solid #ddd !important;
+        }
+        .rainfall-table th:first-child {
+            text-align: left !important;
+        }
+        .rainfall-table td {
+            text-align: right !important;
+            padding: 4px 6px !important;
+            border-bottom: 1px solid #eee !important;
+        }
+        .rainfall-table td:first-child {
+            text-align: left !important;
+        }
+    </style>
     
-    <h4 style="margin-top:0;margin-bottom:10px;">
-    💧 Catchment Rainfall Volume (MCM)
-    </h4>
-    
-    <table style="width:100%;">
-    <tr>
-    <th align="left">Catchment</th>
-    <th align="right">__3hr_</th>
-    <th align="right">__6hr_</th>
-    <th align="right">__12hr_</th>
-    <th align="right">__24hr_</th>
-    </tr>
+    <div class="rainfall-table-container">
+            <h4 class="table-title">💧 Catchment Rainfall Volume (MCM)</h4>
+            <table class="rainfall-table">
+                <thead>
+                    <tr>
+                        <th>Catchment</th>
+                        <th>3hr</th>
+                        <th>6hr</th>
+                        <th>12hr</th>
+                        <th>24hr</th>
+                    </tr>
+                </thead>
+                <tbody>
     """
-
-
     for _, row in catchment_summary.iterrows():
         panel_html += f"""
     <tr>
@@ -263,13 +294,12 @@ def generate_map():
         <td align="right">{row['volume_24h_mcm']:.2f}</td>
     </tr>
     """
-
-    
-        
     panel_html += """
    </table>
    </div>
    """
+
+
     print("5. Building interactive map...")
     m = folium.Map(
         location=[center_lat, center_lon],
@@ -343,8 +373,7 @@ def generate_map():
 
     # Add the catchment summary panel to the map
     from branca.element import Element
-
-    m.get_root().html.add_child(Element(panel_html))
+    m.get_root().html.add_child(folium.Element(panel_html))
 
     # Dam Layer
     dam_group = folium.FeatureGroup(name="NHPC Dams")
@@ -353,7 +382,7 @@ def generate_map():
         dam_name = dam["project_name"]
         folium.Marker(
             location=coords,
-            #popup=folium.Popup(f"<b>{dam_name}</b><br>Lat: {coords[0]:.4f}, Lon: {coords[1]:.4f}", max_width=250),
+            popup=folium.Popup(f"<b>{dam_name}</b><br>Lat: {coords[0]:.4f}, Lon: {coords[1]:.4f}", max_width=450),
             tooltip=(
                 f"<b>{dam['project_name']}</b><br>"
                 f"Latitude : {dam['lat']:.6f}<br>"
@@ -400,7 +429,7 @@ def generate_map():
 
     folium.LayerControl().add_to(m)
 
-    output_path = "india.html"
+    output_path = "Catchment_Rain_Dashboard.html"
     m.save(output_path)
     print(f"6. Map successfully updated and saved to '{output_path}'!")
     return latest_model
