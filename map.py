@@ -15,38 +15,34 @@ from imd_ping import get_forecast, snap_grid, discover_latest_model
 def get_risk(rain24):
 
     if rain24 < 10:
-        return "🟢 Low", "#2E7D32"
+        return "🟢 Low water level", "#2E7D32"
 
     elif rain24 < 30:
-        return "🟡 Moderate", "#F9A825"
+        return "🟡 Moderate water level", "#F9A825"
 
     elif rain24 < 60:
-        return "🟠 High", "#EF6C00"
+        return "🟠 High water level", "#EF6C00"
 
     else:
-        return "🔴 Extreme", "#C62828"
+        return "🔴 Extreme water level", "#C62828"
 
 def color_for_rainfall(val):
     if val is None or pd.isna(val):
-        return "#808080"  # Grey (No data / Failed)
+        return "#070101FF"  # BLACK (No data / Failed)
     if val < 0.1:
         return "#FFFFFF"  # White (No Rain)
     elif val < 2.5:
-        return "#B3E5FC"  # Light Cyan
-    elif val < 7.5:
-        return "#4FC3F7"  # Sky Blue
-    elif val < 15.0:
-        return "#0288D1"  # Deep Blue
-    elif val < 30.0:
-        return "#388E3C"  # Emerald Green
-    elif val < 50.0:
-        return "#FBC02D"  # Bright Yellow
-    elif val < 75.0:
-        return "#F57C00"  # Vivid Orange
-    elif val < 100.0:
-        return "#D32F2F"  # Crimson Red
+        return "#444A4D"  # LIGHT GRAY(VERY LIGHT RAIN)
+    elif val < 15.5:
+        return "#4FC3F7"  # Sky Blue(LIGHT RAIN)
+    elif val < 64.4:
+        return "#25DF44"  # GREEN(Moderate)
+    elif val < 115.5:
+        return "#FAF609"  # YELLOW (Heavy)
+    elif val < 204.4:
+        return "#F57C00"  # ORANGE (very heavy)
     else:
-        return "#7B1FA2"  # Royal Purple
+        return "#D32F2F"  # RED (extremely heavy)
 
 def build_popup(feature):
 
@@ -102,7 +98,6 @@ def build_popup(feature):
     """
 
     return html
-
 
 def generate_map():
     print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Starting map generation pipeline...")
@@ -217,11 +212,11 @@ def generate_map():
     )
 
     # Connect To MySQL Database
-    try:
-        save_to_mysql(catchment_summary, latest_model)
-    except Exception as e:
-        print(f"Error saving to MySQL: {e}")
-        traceback.print_exc()
+    #try:
+    #    save_to_mysql(catchment_summary, latest_model)
+    #except Exception as e:
+    #    print(f"Error saving to MySQL: {e}")
+    #    traceback.print_exc()
 
     # Rainfall Volume Summary Table (Frontend)
     panel_html = """
@@ -413,16 +408,14 @@ def generate_map():
          Model Run: <b>{model_run_formatted}</b><br>
          Updated: <b>{current_time_str}</b>
      </div>
-     <div><i style="background:#FFFFFF; width:18px; height:18px; float:left; margin-right:8px; border:1px solid #ccc;"></i> 0.0 mm (No Rain)</div>
-     <div><i style="background:#B3E5FC; width:18px; height:18px; float:left; margin-right:8px; border:1px solid #ccc;"></i> 0.1 - 2.5 mm (Light)</div>
-     <div><i style="background:#4FC3F7; width:18px; height:18px; float:left; margin-right:8px; border:1px solid #ccc;"></i> 2.5 - 7.5 mm</div>
-     <div><i style="background:#0288D1; width:18px; height:18px; float:left; margin-right:8px; border:1px solid #ccc;"></i> 7.5 - 15 mm (Moderate)</div>
-     <div><i style="background:#388E3C; width:18px; height:18px; float:left; margin-right:8px; border:1px solid #ccc;"></i> 15 - 30 mm</div>
-     <div><i style="background:#FBC02D; width:18px; height:18px; float:left; margin-right:8px; border:1px solid #ccc;"></i> 30 - 50 mm (Heavy)</div>
-     <div><i style="background:#F57C00; width:18px; height:18px; float:left; margin-right:8px; border:1px solid #ccc;"></i> 50 - 75 mm</div>
-     <div><i style="background:#D32F2F; width:18px; height:18px; float:left; margin-right:8px; border:1px solid #ccc;"></i> 75 - 100 mm (V. Heavy)</div>
-     <div><i style="background:#7B1FA2; width:18px; height:18px; float:left; margin-right:8px; border:1px solid #ccc;"></i> > 100 mm (Extreme)</div>
-     <div><i style="background:#808080; width:18px; height:18px; float:left; margin-right:8px; border:1px solid #ccc;"></i> No Data / Error</div>
+     <div><i style="background:#070101FF; width:18px; height:18px; float:left; margin-right:8px; border:1px solid #ccc;"></i> ERROR/ No DATA</div>
+     <div><i style="background:#FFFFFF; width:18px; height:18px; float:left; margin-right:8px; border:1px solid #ccc;"></i> 0 (No Rain)</div>
+     <div><i style="background:#6D6F70; width:18px; height:18px; float:left; margin-right:8px; border:1px solid #ccc;"></i> 0.1 - 2.4 mm (Very Light)</div>
+     <div><i style="background:#4FC3F7; width:18px; height:18px; float:left; margin-right:8px; border:1px solid #ccc;"></i> 2.5 - 15.5 mm (Light)</div>
+     <div><i style="background:#25DF44; width:18px; height:18px; float:left; margin-right:8px; border:1px solid #ccc;"></i> 15.6 - 64.4 mm (Moderate)</div>
+     <div><i style="background:#FAF609; width:18px; height:18px; float:left; margin-right:8px; border:1px solid #ccc;"></i> 64.5 - 115.5 mm (Heavy)</div>
+     <div><i style="background:#F57C00; width:18px; height:18px; float:left; margin-right:8px; border:1px solid #ccc;"></i> 115.6 - 204.4 mm(Very Heavy)</div>
+     <div><i style="background:#D32F2F; width:18px; height:18px; float:left; margin-right:8px; border:1px solid #ccc;"></i> >204.4 mm (Extremely Heavy)</div>
      </div>
     """
     m.get_root().html.add_child(folium.Element(legend_html))
