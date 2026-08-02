@@ -10,6 +10,7 @@ import requests
 from db import save_to_mysql
 import traceback
 from ui.catchment_popup import add_catchment_popup
+from ui.catchment_zoom import add_catchment_zoom
 
 from imd_ping import get_forecast, snap_grid, discover_latest_model
 
@@ -264,11 +265,11 @@ def generate_map():
     )
 
     # Connect To MySQL Database
-    #try:
-    #    save_to_mysql(catchment_summary, latest_model)
-    #except Exception as e:
-    #    print(f"Error saving to MySQL: {e}")
-    #    traceback.print_exc()
+    try:
+        save_to_mysql(catchment_summary, latest_model)
+    except Exception as e:
+        print(f"Error saving to MySQL: {e}")
+        traceback.print_exc()
 
     # Rainfall Volume Summary Table (Frontend)
     panel_html = """
@@ -406,7 +407,8 @@ def generate_map():
         """
     for _, row in catchment_alert_summary.iterrows():        
             priority_html += f"""
-        <tr onclick="openCatchmentPopup('{row['catchment']}');">
+        <tr onclick="focusCatchment('{row['catchment']}');
+             openCatchmentPopup('{row['catchment']}');">
         <td style="font-weight:bold;">    
         {row['alert']}    
         &nbsp;    
@@ -455,7 +457,7 @@ def generate_map():
     ).add_to(m)
 
     # Rainfall Grid Layer
-    folium.GeoJson(
+    grid_layer = folium.GeoJson(
         grid,
         name="Rainfall Forecast (24h Total)",
         style_function=lambda feature: {
@@ -470,7 +472,10 @@ def generate_map():
             "fillOpacity": 0.9
         },
         tooltip=folium.GeoJsonTooltip(
-            fields=["rain_24h", "catchment", "rain_3h", "max_3h", "lat_gfs", "lon_gfs", "area_km2"],
+            fields=[
+                "rain_24h","catchment","rain_3h",
+                "max_3h","lat_gfs","lon_gfs","area_km2"
+            ],
             aliases=[
                 "24h Total Rain (mm):",
                 "Catchment:",
@@ -480,16 +485,19 @@ def generate_map():
                 "Grid Lon:",
                 "Area(km²):"
             ],
-            localize=True,
-            sticky=True
+            sticky=True,
+            localize=True
         ),
         popup=folium.GeoJsonPopup(
-        fields=["popup_html"],
-        labels=False,
-        parse_html=True,
-        max_width=350
-    )
-    ).add_to(m)
+            fields=["popup_html"],
+            labels=False,
+            parse_html=True,
+            max_width=350
+        )
+    )    
+    grid_layer.add_to(m)
+
+    add_catchment_zoom(m, grid_layer)
 
     # Add the catchment summary panel to the map
     from branca.element import Element
