@@ -421,12 +421,12 @@ def generate_map():
     </table>
     </div>
     """
-
     print("5. Building interactive map...")
     m = folium.Map(
         location=[center_lat, center_lon],
         zoom_start=7,
-        tiles="OpenStreetMap"
+        tiles="OpenStreetMap",
+        prefer_canvas=True
     )
 
     # Base layers
