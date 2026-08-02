@@ -9,22 +9,37 @@ from shapely.geometry import Polygon
 import requests
 from db import save_to_mysql
 import traceback
+from ui.catchment_popup import add_catchment_popup
 
 from imd_ping import get_forecast, snap_grid, discover_latest_model
 
 def get_risk(rain24):
 
     if rain24 < 10:
-        return "🟢 Low water level", "#2E7D32"
+        return "🟢 Low", "#2E7D32"
 
     elif rain24 < 30:
-        return "🟡 Moderate water level", "#F9A825"
+        return "🟡 Moderate", "#F9A825"
 
     elif rain24 < 60:
-        return "🟠 High water level", "#EF6C00"
+        return "🟠 High", "#EF6C00"
 
     else:
-        return "🔴 Extreme water level", "#C62828"
+        return "🔴 Extreme", "#C62828"
+
+def catchment_alert(score):
+
+    if score < 15:
+        return "🟢 Low"
+
+    elif score < 40:
+        return "🟡 Moderate"
+
+    elif score < 80:
+        return "🟠 High"
+
+    else:
+        return "🔴 Extreme"
 
 def color_for_rainfall(val):
     if val is None or pd.isna(val):
@@ -35,8 +50,10 @@ def color_for_rainfall(val):
         return "#444A4D"  # LIGHT GRAY(VERY LIGHT RAIN)
     elif val < 15.5:
         return "#4FC3F7"  # Sky Blue(LIGHT RAIN)
+    elif val < 32.6:
+        return "#45F162"  # GREEN(LIGHT RAIN)
     elif val < 64.4:
-        return "#25DF44"  # GREEN(Moderate)
+        return "#005237"  # Dark GREEN(Moderate)
     elif val < 115.5:
         return "#FAF609"  # YELLOW (Heavy)
     elif val < 204.4:
@@ -211,6 +228,41 @@ def generate_map():
     ascending=False
     )
 
+    catchment_alert_summary = (
+    grid.groupby("catchment", dropna=False)
+        .agg(
+            avg_rain_3h=("rain_3h", "mean"),
+            avg_rain_6h=("rain_6h", "mean"),
+            avg_rain_12h=("rain_12h", "mean"),
+            avg_rain_24h=("rain_24h", "mean"),
+
+            max_rain_3h=("rain_3h", "max"),
+            max_rain_6h=("rain_6h", "max"),
+            max_rain_12h=("rain_12h", "max"),
+            max_rain_24h=("rain_24h", "max"),
+
+            volume_3h_mcm=("vol_3h", "sum"),
+            volume_6h_mcm=("vol_6h", "sum"),
+            volume_12h_mcm=("vol_12h", "sum"),
+            volume_24h_mcm=("vol_24h", "sum")
+        )
+        .reset_index()
+    )
+
+    catchment_alert_summary["score"] = (
+        0.6 * catchment_alert_summary["avg_rain_24h"] +
+        0.4 * catchment_alert_summary["max_rain_24h"]
+    )
+
+    catchment_alert_summary["alert"] = (
+        catchment_alert_summary["score"]
+        .apply(catchment_alert)
+    )
+    catchment_alert_summary = catchment_alert_summary.sort_values(
+        by="score",
+        ascending=False
+    )
+
     # Connect To MySQL Database
     #try:
     #    save_to_mysql(catchment_summary, latest_model)
@@ -224,9 +276,9 @@ def generate_map():
         .rainfall-table-container {
             position: fixed !important;
             bottom: 20px !important;
-            left: 20px !important;
+            left: 15px !important;
             width: 350px !important;
-            max-height: 320px !important;
+            max-height: 210px !important;
             overflow-y: auto !important;
             background: rgba(255, 255, 255, 0.95) !important;
             border: 2px solid #555 !important;
@@ -293,7 +345,80 @@ def generate_map():
    </table>
    </div>
    """
+    priority_html = """
+    <style>
+    .priority-panel h4{
 
+        font-weight:600 !important;
+        font-size:18px;
+        margin:0 0 10px 0;
+        color:#000;
+    
+    }
+    .priority-panel{
+    
+        position:fixed;
+        left:15px;
+        bottom:245px;
+        width:350px;
+        max-height: 410px !important;
+        overflow-y: auto !important;
+        background:white;
+        border-radius:8px;
+        border:2px solid grey; border-radius:8px;
+        padding:10px;
+        box-shadow:0 2px 8px rgba(0,0,0,.4);
+        z-index:999999;
+        font-family:Arial;
+    
+    }
+    
+    .priority-panel table{
+    
+        width:100%;
+        border-collapse:collapse;
+    
+    }
+    
+    .priority-panel td{
+    
+        padding:6px;
+        border-bottom:1px solid #ddd;
+        cursor:pointer;
+    }
+    
+    .priority-panel tr:hover{
+    
+        background:#f5f5f5;
+    
+    }
+    
+    </style>
+    
+    <div class="priority-panel">
+        <h4 style="
+            font-weight:700;
+            font-size:20px;
+            color:#b71c1c;
+            margin-bottom:12px;
+        "> ⚠ Catchments Requiring Attention </h4>
+        <table>
+        """
+    for _, row in catchment_alert_summary.iterrows():        
+            priority_html += f"""
+        <tr onclick="openCatchmentPopup('{row['catchment']}');">
+        <td style="font-weight:bold;">    
+        {row['alert']}    
+        &nbsp;    
+        {row['catchment']}    > 
+        </td>    
+        </tr>
+        """
+    
+    priority_html += """
+    </table>
+    </div>
+    """
 
     print("5. Building interactive map...")
     m = folium.Map(
@@ -370,6 +495,10 @@ def generate_map():
     from branca.element import Element
     m.get_root().html.add_child(folium.Element(panel_html))
 
+    # Add the priority panel to the map
+
+    m.get_root().html.add_child(folium.Element(priority_html))
+    
     # Dam Layer
     dam_group = folium.FeatureGroup(name="NHPC Dams")
     for _, dam in dams.iterrows():
@@ -420,13 +549,14 @@ def generate_map():
     """
     m.get_root().html.add_child(folium.Element(legend_html))
 
+
     folium.LayerControl().add_to(m)
 
     output_path = "Catchment_Rain_Dashboard.html"
+    add_catchment_popup(m, catchment_alert_summary)
     m.save(output_path)
     print(f"6. Map successfully updated and saved to '{output_path}'!")
     return latest_model
-
 
 if __name__ == "__main__":
     generate_map()
