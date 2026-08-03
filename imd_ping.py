@@ -140,13 +140,18 @@ def extract_rainfall_summary(forecast_data):
     rain_12h = sum(valid_apcp[:4])
     rain_24h = sum(valid_apcp[:8])  # First 8 periods (8 * 3 = 24 hours)
     max_3h = max(valid_apcp[:8]) if len(valid_apcp) >= 8 else max(valid_apcp)
-    
+    rain_2nd_day_6hr= sum(valid_apcp[8:10])
+    rain_2nd_day_12hr= sum(valid_apcp[8:12])
+    rain_2nd_day_24hr= sum(valid_apcp[8:16])
     return {
         "rain_3h": round(rain_3h, 2),
         "rain_6h": round(rain_6h, 2),
         "rain_12h": round(rain_12h, 2),
         "rain_24h": round(rain_24h, 2),
         "max_3h": round(max_3h, 2),
+        "rain_2nd_day_6hr": round(rain_2nd_day_6hr, 2),
+        "rain_2nd_day_12hr": round(rain_2nd_day_12hr, 2),
+        "rain_2nd_day_24hr": round(rain_2nd_day_24hr, 2),
         "status": "ok"
     }
 

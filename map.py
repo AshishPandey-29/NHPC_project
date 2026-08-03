@@ -11,6 +11,7 @@ from db import save_to_mysql
 import traceback
 from ui.catchment_popup import add_catchment_popup
 from ui.catchment_zoom import add_catchment_zoom
+from ui.grid_popup import add_grid_popup
 
 from imd_ping import get_forecast, snap_grid, discover_latest_model
 
@@ -51,10 +52,8 @@ def color_for_rainfall(val):
         return "#444A4D"  # LIGHT GRAY(VERY LIGHT RAIN)
     elif val < 15.5:
         return "#4FC3F7"  # Sky Blue(LIGHT RAIN)
-    elif val < 32.6:
-        return "#45F162"  # GREEN(LIGHT RAIN)
     elif val < 64.4:
-        return "#005237"  # Dark GREEN(Moderate)
+        return "#45F162"  # Dark GREEN(Moderate)
     elif val < 115.5:
         return "#FAF609"  # YELLOW (Heavy)
     elif val < 204.4:
@@ -62,68 +61,13 @@ def color_for_rainfall(val):
     else:
         return "#D32F2F"  # RED (extremely heavy)
 
-def build_popup(feature):
-
-    p = feature["properties"]
-
-    html = f"""
-    <div style="width:320px;font-family:Arial">
-
-    <h3 style="margin-bottom:5px;">📍 Grid Information</h3>
-
-    <table style="width:100%;font-size:13px">
-    <tr><td><b>Catchment</b></td><td>{p['catchment']}</td></tr>
-    <tr><td><b>Latitude</b></td><td>{p['lat_gfs']:.4f}</td></tr>
-    <tr><td><b>Longitude</b></td><td>{p['lon_gfs']:.4f}</td></tr>
-    <tr><td><b>Area</b></td><td>{p['area_km2']:.2f} km²</td></tr>
-    </table>
-
-    <hr>
-
-    <h3 style="margin-bottom:5px;">🌧 Rain Forecast</h3>
-
-    <table style="width:100%;font-size:13px">
-    <tr><td>Next 3 Hours</td><td>{p['rain_3h']:.1f} mm</td></tr>
-    <tr><td>Next 6 Hours</td><td>{p['rain_6h']:.1f} mm</td></tr>
-    <tr><td>Next 12 Hours</td><td>{p['rain_12h']:.1f} mm</td></tr>
-    <tr><td>Next 24 Hours</td><td>{p['rain_24h']:.1f} mm</td></tr>
-    </table>
-
-    <hr>
-
-    <h3 style="margin-bottom:5px;">💧 Rainfall Volume</h3>
-
-    <table style="width:100%;font-size:13px">
-    <tr><td>3 Hours</td><td>{p['vol_3h']:.3f} MCM</td></tr>
-    <tr><td>6 Hours</td><td>{p['vol_6h']:.3f} MCM</td></tr>
-    <tr><td>12 Hours</td><td>{p['vol_12h']:.3f} MCM</td></tr>
-    <tr><td>24 Hours</td><td>{p['vol_24h']:.3f} MCM</td></tr>
-    </table>
-
-    <hr>
-
-    <h3 style="margin-bottom:5px;">⚠ Risk Level</h3>
-
-    <span style="
-        font-size:16px;
-        font-weight:bold;
-        color:{p['risk_color']};
-    ">
-        {p['risk']}
-    </span>
-
-    </div>
-    """
-
-    return html
-
 def generate_map():
     print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Starting map generation pipeline...")
     
     print("1. Loading GeoPackage layers...")
-    catchment = gpd.read_file("catchments.gpkg")
-    outline = gpd.read_file("India_Outline.gpkg", layer="single_parts")
-    data = pd.read_csv("project_dam_coordinates.csv")
+    catchment = gpd.read_file("data/catchments.gpkg")
+    outline = gpd.read_file("data/India_Outline.gpkg", layer="single_parts")
+    data = pd.read_csv("data/project_dam_coordinates.csv")
     dams=pd.DataFrame(data)
 
     # Reproject to metric CRS to calculate centroids without geographic CRS warnings
@@ -133,7 +77,7 @@ def generate_map():
 
     print("2. Generating 0.125° grid over catchments...")
     
-    grid = gpd.read_file(r"final_grid.gpkg")
+    grid = gpd.read_file(r"data/final_grid.gpkg")
 
     # Compute centroids for querying IMD
     grid_metric = grid.to_crs("EPSG:3857")
@@ -186,6 +130,9 @@ def generate_map():
     grid["rain_3h"] = grid.apply(lambda r: cache.get((r["lat_gfs"], r["lon_gfs"]), {}).get("rain_3h", 0.0), axis=1)
     grid["rain_6h"] = grid.apply(lambda r: cache.get((r["lat_gfs"], r["lon_gfs"]), {}).get("rain_6h", 0.0), axis=1)
     grid["rain_12h"] = grid.apply(lambda r: cache.get((r["lat_gfs"], r["lon_gfs"]), {}).get("rain_12h", 0.0), axis=1)
+    grid["rain_2nd_day_6hr"] = grid.apply(lambda r: cache.get((r["lat_gfs"], r["lon_gfs"]), {}).get("rain_2nd_day_6hr", 0.0), axis=1)
+    grid["rain_2nd_day_12hr"] = grid.apply(lambda r: cache.get((r["lat_gfs"], r["lon_gfs"]), {}).get("rain_2nd_day_12hr", 0.0), axis=1)
+    grid["rain_2nd_day_24hr"] = grid.apply(lambda r: cache.get((r["lat_gfs"], r["lon_gfs"]), {}).get("rain_2nd_day_24hr", 0.0), axis=1)
     grid["max_3h"] = grid.apply(lambda r: cache.get((r["lat_gfs"], r["lon_gfs"]), {}).get("max_3h", 0.0), axis=1)
 
     # Rainfall Volume (Million Cubic Metres)
@@ -194,23 +141,12 @@ def generate_map():
     grid["vol_6h"] = (grid["rain_6h"] / 1000 * grid["area_m2"]) / 1_000_000
     grid["vol_12h"] = (grid["rain_12h"] / 1000 * grid["area_m2"]) / 1_000_000
     grid["vol_24h"] = (grid["rain_24h"] / 1000 * grid["area_m2"]) / 1_000_000
+    grid["vol_2nd_day_6hr"] = (grid["rain_2nd_day_6hr"] / 1000 * grid["area_m2"]) / 1_000_000
+    grid["vol_2nd_day_12hr"] = (grid["rain_2nd_day_12hr"] / 1000 * grid["area_m2"]) / 1_000_000
+    grid["vol_2nd_day_24hr"] = (grid["rain_2nd_day_24hr"] / 1000 * grid["area_m2"]) / 1_000_000
 
     grid["risk"], grid["risk_color"] = zip(
     *grid["rain_24h"].apply(get_risk)
-    )
-
-    grid["popup_html"] = grid.__geo_interface__["features"]  # Don't use this directly
-    grid["popup_html"] = grid.apply(
-    lambda row: build_popup({
-        "properties": row.to_dict()
-    }),
-    axis=1
-    )
-    popup=folium.GeoJsonPopup(
-    fields=["popup_html"],
-    labels=False,
-    parse_html=True,
-    max_width=350
     )
 
     #Creating CATCHMENT RAIN SUMMARY
@@ -220,7 +156,10 @@ def generate_map():
             volume_3h_mcm=("vol_3h", "sum"),
             volume_6h_mcm=("vol_6h", "sum"),
             volume_12h_mcm=("vol_12h", "sum"),
-            volume_24h_mcm=("vol_24h", "sum")
+            volume_24h_mcm=("vol_24h", "sum"),
+            volume_2nd_day_6hr_mcm=("vol_2nd_day_6hr", "sum"),
+            volume_2nd_day_12hr_mcm=("vol_2nd_day_12hr", "sum"),
+            volume_2nd_day_24hr_mcm=("vol_2nd_day_24hr", "sum")
         )
         .reset_index()
     )
@@ -236,16 +175,25 @@ def generate_map():
             avg_rain_6h=("rain_6h", "mean"),
             avg_rain_12h=("rain_12h", "mean"),
             avg_rain_24h=("rain_24h", "mean"),
+            avg_rain_2nd_day_6hr=("rain_2nd_day_6hr", "mean"),
+            avg_rain_2nd_day_12hr=("rain_2nd_day_12hr", "mean"),
+            avg_rain_2nd_day_24hr=("rain_2nd_day_24hr", "mean"),
 
             max_rain_3h=("rain_3h", "max"),
             max_rain_6h=("rain_6h", "max"),
             max_rain_12h=("rain_12h", "max"),
             max_rain_24h=("rain_24h", "max"),
+            max_rain_2nd_day_6hr=("rain_2nd_day_6hr", "max"),
+            max_rain_2nd_day_12hr=("rain_2nd_day_12hr", "max"),
+            max_rain_2nd_day_24hr=("rain_2nd_day_24hr", "max"),
 
             volume_3h_mcm=("vol_3h", "sum"),
             volume_6h_mcm=("vol_6h", "sum"),
             volume_12h_mcm=("vol_12h", "sum"),
-            volume_24h_mcm=("vol_24h", "sum")
+            volume_24h_mcm=("vol_24h", "sum"),
+            volume_2nd_day_6hr_mcm=("vol_2nd_day_6hr", "sum"),
+            volume_2nd_day_12hr_mcm=("vol_2nd_day_12hr", "sum"),
+            volume_2nd_day_24hr_mcm=("vol_2nd_day_24hr", "sum")
         )
         .reset_index()
     )
@@ -278,8 +226,8 @@ def generate_map():
             position: fixed !important;
             bottom: 20px !important;
             left: 15px !important;
-            width: 350px !important;
-            max-height: 210px !important;
+            width: 550px !important;
+            max-height: 215px !important;
             overflow-y: auto !important;
             background: rgba(255, 255, 255, 0.95) !important;
             border: 2px solid #555 !important;
@@ -328,6 +276,9 @@ def generate_map():
                         <th>6hr</th>
                         <th>12hr</th>
                         <th>24hr</th>
+                        <th>2nd Day 6hr</th>
+                        <th>2nd Day 12hr</th>
+                        <th>2nd Day 24hr</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -340,12 +291,17 @@ def generate_map():
         <td align="right">{row['volume_6h_mcm']:.2f}</td>
         <td align="right">{row['volume_12h_mcm']:.2f}</td>
         <td align="right">{row['volume_24h_mcm']:.2f}</td>
+        <td align="right">{row['volume_2nd_day_6hr_mcm']:.2f}</td>
+        <td align="right">{row['volume_2nd_day_12hr_mcm']:.2f}</td>
+        <td align="right">{row['volume_2nd_day_24hr_mcm']:.2f}</td>
     </tr>
     """
     panel_html += """
    </table>
    </div>
    """
+    
+    # ⚠ Catchments Requiring Attention panel (24hr Timeline)
     priority_html = """
     <style>
     .priority-panel h4{
@@ -360,7 +316,7 @@ def generate_map():
     
         position:fixed;
         left:15px;
-        bottom:245px;
+        bottom:250px;
         width:350px;
         max-height: 410px !important;
         overflow-y: auto !important;
@@ -402,7 +358,7 @@ def generate_map():
             font-size:20px;
             color:#b71c1c;
             margin-bottom:12px;
-        "> ⚠ Catchments Requiring Attention </h4>
+        "> ⚠ Catchments Requiring Attention (24hr based) </h4>
         <table>
         """
     for _, row in catchment_alert_summary.iterrows():        
@@ -488,15 +444,10 @@ def generate_map():
             sticky=True,
             localize=True
         ),
-        popup=folium.GeoJsonPopup(
-            fields=["popup_html"],
-            labels=False,
-            parse_html=True,
-            max_width=350
-        )
     )    
     grid_layer.add_to(m)
 
+    add_grid_popup(m, grid_layer)
     add_catchment_zoom(m, grid_layer)
 
     # Add the catchment summary panel to the map
