@@ -74,3 +74,27 @@ def save_to_mysql(catchment_summary, latest_model):
 
     print(f"Saved {len(catchment_summary)} catchment records to MySQL for model run: {latest_model_str}.")
 
+
+def fetch_catchment_projects():
+    """Fetch catchment_name to projects mapping from MySQL catchment_details table."""
+    projects_map = {}
+    try:
+        conn = mysql.connector.connect(
+            host=DB_HOST,
+            user=DB_USER,
+            password=DB_PASSWORD,
+            database=DB_NAME
+        )
+        cursor = conn.cursor()
+        cursor.execute("SELECT catchment_name, projects FROM catchment_details")
+        for row in cursor.fetchall():
+            cname, projs = row[0], row[1]
+            if cname:
+                projects_map[cname.strip()] = projs.strip() if projs else ""
+        cursor.close()
+        conn.close()
+    except Exception as e:
+        print(f"Notice: Could not fetch catchment projects from MySQL: {e}")
+    return projects_map
+
+

@@ -7,7 +7,7 @@ import geopandas as gpd
 import pandas as pd
 from shapely.geometry import Polygon
 import requests
-from db import save_to_mysql
+from db import save_to_mysql, fetch_catchment_projects
 import traceback
 from ui.catchment_popup import add_catchment_popup
 from ui.catchment_zoom import add_catchment_zoom
@@ -219,10 +219,12 @@ def generate_map():
     )
 
     # Connect To MySQL Database
+    catchment_projects = {}
     try:
         save_to_mysql(catchment_summary, latest_model)
+        catchment_projects = fetch_catchment_projects()
     except Exception as e:
-        print(f"Error saving to MySQL: {e}")
+        print(f"Error connecting to MySQL: {e}")
         traceback.print_exc()
 
     # Full height Left Side Alert & Summary Panel HTML with 2 Tabs
@@ -232,8 +234,8 @@ def generate_map():
             left: 470px !important;
             transition: left 0.3s ease !important;
         }
-        .leaflet-tooltip {
-            font-size: 13px !important;
+        .leaflet-tooltip, .leaflet-tooltip table, .leaflet-tooltip td, .leaflet-tooltip th {
+            font-size: 9px !important;
         }
         .leaflet-popup-content {
             font-size: 15px !important;
@@ -363,11 +365,15 @@ def generate_map():
             <table class="priority-table">
     """
     for _, row in catchment_alert_summary.iterrows():
+        c_name = row['catchment']
+        projs = catchment_projects.get(c_name, "")
+        proj_html = f'<div style="font-size:12px; color:#444; font-weight:normal; margin-top:3px; padding-left:26px; line-height:1.3;"><b>Projects:</b> {projs}</div>' if projs else ''
         alert_panel_html += f"""
-                <tr onclick="focusCatchment('{row['catchment']}');
-                             openCatchmentPopup('{row['catchment']}');">
-                    <td style="font-weight:bold;">
-                        {row['alert']} &nbsp; {row['catchment']}
+                <tr onclick="focusCatchment('{c_name}');
+                             openCatchmentPopup('{c_name}');">
+                    <td style="font-weight:bold; padding:8px 6px;">
+                        <div>{row['alert']} &nbsp; {c_name}</div>
+                        {proj_html}
                     </td>
                 </tr>
         """
@@ -446,8 +452,8 @@ def generate_map():
     )
 
     # Base layers
-    folium.TileLayer("CartoDB positron", name="CartoDB Light").add_to(m)
-    folium.TileLayer("Esri.WorldImagery", name="Satellite (Esri)").add_to(m)
+    #folium.TileLayer("CartoDB positron", name="CartoDB Light").add_to(m)
+    #folium.TileLayer("Esri.WorldImagery", name="Satellite (Esri)").add_to(m)
 
     # India Boundary
     folium.GeoJson(
