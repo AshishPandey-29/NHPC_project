@@ -52,7 +52,7 @@ def add_catchment_popup(m, catchment_alert_summary):
 
     right:20px;
 
-    width:330px;
+    width:350px;
 
     background:white;
 
@@ -65,10 +65,13 @@ def add_catchment_popup(m, catchment_alert_summary):
     padding:15px;
 
     font-family:Arial;
+
+    font-size:15px;
 }}
 
 #catchmentPopup h3{{
     margin-top:0;
+    font-size:20px;
 }}
 
 #popupClose{{
@@ -76,6 +79,7 @@ def add_catchment_popup(m, catchment_alert_summary):
     cursor:pointer;
     color:red;
     font-weight:bold;
+    font-size:18px;
 }}
 
 </style>

@@ -12,11 +12,11 @@ function buildGridPopup(p){{
 
     return `
 
-<div style="width:320px;font-family:Arial">
+<div style="width:340px;font-family:Arial;font-size:15px">
 
-<h3 style="margin-bottom:5px;">📍 Grid Information</h3>
+<h3 style="margin-bottom:5px;font-size:18px;">📍 Grid Information</h3>
 
-<table style="width:100%;font-size:13px">
+<table style="width:100%;font-size:15px">
 
 <tr><td><b>Catchment</b></td><td>${{p.catchment}}</td></tr>
 
@@ -30,9 +30,9 @@ function buildGridPopup(p){{
 
 <hr>
 
-<h3 style="margin-bottom:5px;">🌧 Rain Forecast</h3>
+<h3 style="margin-bottom:5px;font-size:18px;">🌧 Rain Forecast</h3>
 
-<table style="width:100%;font-size:13px">
+<table style="width:100%;font-size:15px">
 
 <tr><td>Next 3 Hours</td><td>${{Number(p.rain_3h).toFixed(1)}} mm</td></tr>
 
@@ -52,9 +52,9 @@ function buildGridPopup(p){{
 
 <hr>
 
-<h3 style="margin-bottom:5px;">💧 Rainfall Volume</h3>
+<h3 style="margin-bottom:5px;font-size:18px;">💧 Rainfall Volume</h3>
 
-<table style="width:100%;font-size:13px">
+<table style="width:100%;font-size:15px">
 
 <tr><td>3 Hours</td><td>${{Number(p.vol_3h).toFixed(3)}} MCM</td></tr>
 
@@ -74,9 +74,9 @@ function buildGridPopup(p){{
 
 <hr>
 
-<h3 style="margin-bottom:5px;">⚠ Risk Level (24hr based)</h3>
+<h3 style="margin-bottom:5px;font-size:18px;">⚠ Risk Level (24hr based)</h3>
 
-<span style="font-size:16px;font-weight:bold;color:${{p.risk_color}}">
+<span style="font-size:18px;font-weight:bold;color:${{p.risk_color}}">
 
 ${{p.risk}}
 
@@ -93,7 +93,7 @@ window.addEventListener("load", function() {{
     var mapObj = {map_name};
 
     var popup = L.popup({{
-        maxWidth: 350
+        maxWidth: 370
     }});
 
     if (gridLayer) {{

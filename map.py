@@ -29,19 +29,30 @@ def get_risk(rain24):
     else:
         return "🔴 Extreme", "#C62828"
 
-def catchment_alert(score):
+def catchment_alert(val):
+    if val is None or pd.isna(val):
+        return '<span style="color:#070101; font-size:22px;">●</span> No Data'
 
-    if score < 15:
-        return "🟢 Low"
+    if val < 0.1:
+        return '<span style="color:#FFFFFF; font-size:22px;">●</span> No Rain'
 
-    elif score < 40:
-        return "🟡 Moderate"
+    elif val < 2.5:
+        return '<span style="color:#444A4D; font-size:22px;">●</span> Very Light'
 
-    elif score < 80:
-        return "🟠 High"
+    elif val < 15.5:
+        return '<span style="color:#4FC3F7; font-size:22px;">●</span> Light'
+
+    elif val < 64.4:
+        return '<span style="color:#45F162; font-size:22px;">●</span> Moderate'
+
+    elif val < 115.5:
+        return '<span style="color:#FAF609; font-size:22px;">●</span> Heavy'
+
+    elif val < 204.4:
+        return '<span style="color:#F57C00; font-size:22px;">●</span> Very Heavy'
 
     else:
-        return "🔴 Extreme"
+        return '<span style="color:#D32F2F; font-size:22px;">●</span> Extremely Heavy'
 
 def color_for_rainfall(val):
     if val is None or pd.isna(val):
@@ -52,7 +63,7 @@ def color_for_rainfall(val):
         return "#444A4D"  # LIGHT GRAY(VERY LIGHT RAIN)
     elif val < 15.5:
         return "#4FC3F7"  # Sky Blue(LIGHT RAIN)
-    elif val < 64.4:
+    elif val < 64:
         return "#45F162"  # Dark GREEN(Moderate)
     elif val < 115.5:
         return "#FAF609"  # YELLOW (Heavy)
@@ -198,17 +209,12 @@ def generate_map():
         .reset_index()
     )
 
-    catchment_alert_summary["score"] = (
-        0.6 * catchment_alert_summary["avg_rain_24h"] +
-        0.4 * catchment_alert_summary["max_rain_24h"]
-    )
-
     catchment_alert_summary["alert"] = (
-        catchment_alert_summary["score"]
+        catchment_alert_summary["avg_rain_24h"]
         .apply(catchment_alert)
     )
     catchment_alert_summary = catchment_alert_summary.sort_values(
-        by="score",
+        by="avg_rain_24h",
         ascending=False
     )
 
@@ -219,163 +225,217 @@ def generate_map():
         print(f"Error saving to MySQL: {e}")
         traceback.print_exc()
 
-    # Rainfall Volume Summary Table (Frontend)
-    panel_html = """
+    # Full height Left Side Alert & Summary Panel HTML with 2 Tabs
+    alert_panel_html = """
     <style>
-        .rainfall-table-container {
-            position: fixed !important;
-            bottom: 20px !important;
-            left: 15px !important;
-            width: 550px !important;
-            max-height: 215px !important;
-            overflow-y: auto !important;
-            background: rgba(255, 255, 255, 0.95) !important;
-            border: 2px solid #555 !important;
-            border-radius: 8px !important;
-            padding: 10px !important;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.4) !important;
-            z-index: 999999 !important;
-            font-family: Arial, sans-serif !important;
+        .leaflet-left {
+            left: 470px !important;
+            transition: left 0.3s ease !important;
+        }
+        .leaflet-tooltip {
             font-size: 13px !important;
         }
-        .table-title {
-            margin-top: 0 !important;
-            margin-bottom: 10px !important;
+        .leaflet-popup-content {
+            font-size: 15px !important;
+        }
+        .leaflet-control-layers {
+            font-size: 14px !important;
+        }
+        .alert-side-panel {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 460px !important;
+            height: 100vh !important;
+            background: rgba(255, 255, 255, 0.96) !important;
+            border-right: 2px solid #666 !important;
+            box-shadow: 4px 0 15px rgba(0, 0, 0, 0.3) !important;
+            z-index: 999999 !important;
+            font-family: Arial, sans-serif !important;
+            display: flex !important;
+            flex-direction: column !important;
+            box-sizing: border-box !important;
+        }
+        .panel-tab-bar {
+            display: flex !important;
+            background: #e0e0e0 !important;
+            border-bottom: 2px solid #ccc !important;
+        }
+        .panel-tab-btn {
+            flex: 1 !important;
+            padding: 12px 8px !important;
+            background: none !important;
+            border: none !important;
+            border-bottom: 3px solid transparent !important;
+            outline: none !important;
+            cursor: pointer !important;
             font-size: 15px !important;
             font-weight: bold !important;
+            color: #444 !important;
+            transition: all 0.2s ease !important;
+            text-align: center !important;
+        }
+        .panel-tab-btn.active {
+            color: #0288D1 !important;
+            border-bottom: 3px solid #0288D1 !important;
+            background: #ffffff !important;
+        }
+        .panel-tab-btn:hover {
+            background: #ededed !important;
+        }
+        .panel-tab-content {
+            display: none !important;
+            padding: 12px !important;
+            overflow-y: auto !important;
+            flex: 1 !important;
+        }
+        .panel-tab-content.active {
+            display: block !important;
+        }
+        /* Priority / Catchment Alerts Tab */
+        .priority-panel-container h4 {
+            font-weight: 700 !important;
+            font-size: 18px !important;
+            color: #b71c1c !important;
+            margin-top: 0 !important;
+            margin-bottom: 12px !important;
+        }
+        .priority-table {
+            width: 100% !important;
+            border-collapse: collapse !important;
+        }
+        .priority-table td {
+            padding: 8px 6px !important;
+            border-bottom: 1px solid #ddd !important;
+            cursor: pointer !important;
+            font-size: 15px !important;
+        }
+        .priority-table tr:hover {
+            background: #f5f5f5 !important;
+        }
+        /* Rainfall Volume Tab */
+        .rainfall-table-container h4 {
+            margin-top: 0 !important;
+            margin-bottom: 10px !important;
+            font-size: 17px !important;
+            font-weight: bold !important;
+        }
+        .rainfall-table-wrapper {
+            overflow-x: auto !important;
         }
         .rainfall-table {
             width: 100% !important;
             border-collapse: collapse !important;
+            font-size: 14px !important;
         }
         .rainfall-table th {
             text-align: right !important;
-            padding: 4px 6px !important;
+            padding: 6px 4px !important;
             border-bottom: 2px solid #ddd !important;
+            background: #f8f9fa !important;
+            position: sticky !important;
+            top: 0 !important;
+            white-space: nowrap !important;
         }
         .rainfall-table th:first-child {
             text-align: left !important;
         }
         .rainfall-table td {
             text-align: right !important;
-            padding: 4px 6px !important;
+            padding: 6px 4px !important;
             border-bottom: 1px solid #eee !important;
+            white-space: nowrap !important;
         }
         .rainfall-table td:first-child {
             text-align: left !important;
         }
     </style>
-    
-    <div class="rainfall-table-container">
+
+    <div class="alert-side-panel">
+        <div class="panel-tab-bar">
+            <button class="panel-tab-btn active" onclick="switchSideTab(event, 'tab-catchment-alerts')">catchment_alerts</button>
+            <button class="panel-tab-btn" onclick="switchSideTab(event, 'tab-rainfall-volume')">Catchment Rainfall Volume (MCM)</button>
+        </div>
+
+        <!-- Tab 1: catchment_alerts -->
+        <div id="tab-catchment-alerts" class="panel-tab-content priority-panel-container active">
+            <h4>⚠ Catchments Requiring Attention (24hr based)</h4>
+            <table class="priority-table">
+    """
+    for _, row in catchment_alert_summary.iterrows():
+        alert_panel_html += f"""
+                <tr onclick="focusCatchment('{row['catchment']}');
+                             openCatchmentPopup('{row['catchment']}');">
+                    <td style="font-weight:bold;">
+                        {row['alert']} &nbsp; {row['catchment']}
+                    </td>
+                </tr>
+        """
+
+    alert_panel_html += """
+            </table>
+        </div>
+
+        <!-- Tab 2: Catchment Rainfall Volume (MCM) -->
+        <div id="tab-rainfall-volume" class="panel-tab-content rainfall-table-container">
             <h4 class="table-title">💧 Catchment Rainfall Volume (MCM)</h4>
-            <table class="rainfall-table">
-                <thead>
-                    <tr>
-                        <th>Catchment</th>
-                        <th>3hr</th>
-                        <th>6hr</th>
-                        <th>12hr</th>
-                        <th>24hr</th>
-                        <th>2nd Day 6hr</th>
-                        <th>2nd Day 12hr</th>
-                        <th>2nd Day 24hr</th>
-                    </tr>
-                </thead>
-                <tbody>
+            <div class="rainfall-table-wrapper">
+                <table class="rainfall-table">
+                    <thead>
+                        <tr>
+                            <th>Catchment</th>
+                            <th>3hr</th>
+                            <th>6hr</th>
+                            <th>12hr</th>
+                            <th>24hr</th>
+                            <th>2nd Day 6hr</th>
+                            <th>2nd Day 12hr</th>
+                            <th>2nd Day 24hr</th>
+                        </tr>
+                    </thead>
+                    <tbody>
     """
     for _, row in catchment_summary.iterrows():
-        panel_html += f"""
-    <tr>
-        <td>{row['catchment']}</td>
-        <td align="right">{row['volume_3h_mcm']:.2f}</td>
-        <td align="right">{row['volume_6h_mcm']:.2f}</td>
-        <td align="right">{row['volume_12h_mcm']:.2f}</td>
-        <td align="right">{row['volume_24h_mcm']:.2f}</td>
-        <td align="right">{row['volume_2nd_day_6hr_mcm']:.2f}</td>
-        <td align="right">{row['volume_2nd_day_12hr_mcm']:.2f}</td>
-        <td align="right">{row['volume_2nd_day_24hr_mcm']:.2f}</td>
-    </tr>
-    """
-    panel_html += """
-   </table>
-   </div>
-   """
-    
-    # ⚠ Catchments Requiring Attention panel (24hr Timeline)
-    priority_html = """
-    <style>
-    .priority-panel h4{
+        alert_panel_html += f"""
+                        <tr>
+                            <td>{row['catchment']}</td>
+                            <td align="right">{row['volume_3h_mcm']:.2f}</td>
+                            <td align="right">{row['volume_6h_mcm']:.2f}</td>
+                            <td align="right">{row['volume_12h_mcm']:.2f}</td>
+                            <td align="right">{row['volume_24h_mcm']:.2f}</td>
+                            <td align="right">{row['volume_2nd_day_6hr_mcm']:.2f}</td>
+                            <td align="right">{row['volume_2nd_day_12hr_mcm']:.2f}</td>
+                            <td align="right">{row['volume_2nd_day_24hr_mcm']:.2f}</td>
+                        </tr>
+        """
 
-        font-weight:600 !important;
-        font-size:18px;
-        margin:0 0 10px 0;
-        color:#000;
-    
-    }
-    .priority-panel{
-    
-        position:fixed;
-        left:15px;
-        bottom:250px;
-        width:350px;
-        max-height: 410px !important;
-        overflow-y: auto !important;
-        background:white;
-        border-radius:8px;
-        border:2px solid grey; border-radius:8px;
-        padding:10px;
-        box-shadow:0 2px 8px rgba(0,0,0,.4);
-        z-index:999999;
-        font-family:Arial;
-    
-    }
-    
-    .priority-panel table{
-    
-        width:100%;
-        border-collapse:collapse;
-    
-    }
-    
-    .priority-panel td{
-    
-        padding:6px;
-        border-bottom:1px solid #ddd;
-        cursor:pointer;
-    }
-    
-    .priority-panel tr:hover{
-    
-        background:#f5f5f5;
-    
-    }
-    
-    </style>
-    
-    <div class="priority-panel">
-        <h4 style="
-            font-weight:700;
-            font-size:20px;
-            color:#b71c1c;
-            margin-bottom:12px;
-        "> ⚠ Catchments Requiring Attention (24hr based) </h4>
-        <table>
-        """
-    for _, row in catchment_alert_summary.iterrows():        
-            priority_html += f"""
-        <tr onclick="focusCatchment('{row['catchment']}');
-             openCatchmentPopup('{row['catchment']}');">
-        <td style="font-weight:bold;">    
-        {row['alert']}    
-        &nbsp;    
-        {row['catchment']}    > 
-        </td>    
-        </tr>
-        """
-    
-    priority_html += """
-    </table>
+    alert_panel_html += """
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
+
+    <script>
+    function switchSideTab(evt, tabId) {
+        var i, tabcontent, tablinks;
+        tabcontent = document.getElementsByClassName("panel-tab-content");
+        for (i = 0; i < tabcontent.length; i++) {
+            tabcontent[i].style.display = "none";
+            tabcontent[i].classList.remove("active");
+        }
+        tablinks = document.getElementsByClassName("panel-tab-btn");
+        for (i = 0; i < tablinks.length; i++) {
+            tablinks[i].classList.remove("active");
+        }
+        var targetTab = document.getElementById(tabId);
+        if (targetTab) {
+            targetTab.style.display = "block";
+            targetTab.classList.add("active");
+        }
+        evt.currentTarget.classList.add("active");
+    }
+    </script>
     """
     print("5. Building interactive map...")
     m = folium.Map(
@@ -450,13 +510,9 @@ def generate_map():
     add_grid_popup(m, grid_layer)
     add_catchment_zoom(m, grid_layer)
 
-    # Add the catchment summary panel to the map
+    # Add full-height side panel with tabs to the map
     from branca.element import Element
-    m.get_root().html.add_child(folium.Element(panel_html))
-
-    # Add the priority panel to the map
-
-    m.get_root().html.add_child(folium.Element(priority_html))
+    m.get_root().html.add_child(folium.Element(alert_panel_html))
     
     # Dam Layer
     dam_group = folium.FeatureGroup(name="NHPC Dams")
@@ -485,18 +541,17 @@ def generate_map():
     legend_html = f"""
      <div style="
      position: fixed; 
-     bottom: 30px; right: 30px; width: 230px;
-     background-color: white; z-index:9999; font-size:13px;
+     bottom: 30px; right: 30px; width: 240px;
+     background-color: white; z-index:9999; font-size:14px;
      border:2px solid grey; border-radius:8px; padding: 10px;
      box-shadow: 2px 2px 6px rgba(0,0,0,0.3);
      font-family: Arial, sans-serif;
      ">
-     <h4 style="margin-top:0; margin-bottom:4px; font-size:14px; text-align:center;"><b>Rainfall Forecast (24h)</b></h4>
-     <div style="font-size:11px; color:#555; text-align:center; margin-bottom:8px; line-height: 1.3;">
+     <h4 style="margin-top:0; margin-bottom:4px; font-size:15px; text-align:center;"><b>Rainfall Forecast (24h)</b></h4>
+     <div style="font-size:12px; color:#555; text-align:center; margin-bottom:8px; line-height: 1.3;">
          Model Run: <b>{model_run_formatted}</b><br>
          Updated: <b>{current_time_str}</b>
      </div>
-     <div><i style="background:#070101FF; width:18px; height:18px; float:left; margin-right:8px; border:1px solid #ccc;"></i> ERROR/ No DATA</div>
      <div><i style="background:#FFFFFF; width:18px; height:18px; float:left; margin-right:8px; border:1px solid #ccc;"></i> 0 (No Rain)</div>
      <div><i style="background:#6D6F70; width:18px; height:18px; float:left; margin-right:8px; border:1px solid #ccc;"></i> 0.1 - 2.4 mm (Very Light)</div>
      <div><i style="background:#4FC3F7; width:18px; height:18px; float:left; margin-right:8px; border:1px solid #ccc;"></i> 2.5 - 15.5 mm (Light)</div>
