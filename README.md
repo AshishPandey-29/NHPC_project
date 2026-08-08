@@ -1,6 +1,6 @@
-# NHPC Rainfall Forecast & Dam Catchment Monitoring System
+# NHPC Rainfall Monitoring System For Dam Catchment
 
-An automated geospatial forecasting and risk assessment pipeline for NHPC hydroelectric dam catchments across India. The system fetches high-resolution 0.125° Numerical Weather Prediction (NWP) forecast data from the India Meteorological Department (IMD) Multi-Model Ensemble (MME/GFS), computes cumulative rainfall depth and runoff volume (in Million Cubic Meters - MCM) over catchment basins, persists historical model run data in MySQL, and builds an interactive GIS web dashboard (`Catchment_Rain_Dashboard.html`).
+An automated rainfall monitoring and risk assessment pipeline for NHPC hydroelectric dam catchments across India. The system fetches high-resolution 0.125° Numerical Weather Prediction (NWP) forecast data from the India Meteorological Department (IMD) Multi-Model Ensemble (MME/GFS), computes cumulative rainfall depth and runoff volume (in Million Cubic Meters - MCM) over catchment basins, persists historical model run data in MySQL, and builds an interactive GIS web dashboard (`Catchment_Rain_Dashboard.html`).
 
 ---
 
